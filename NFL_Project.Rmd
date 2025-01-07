@@ -1,0 +1,105 @@
+---
+title: "NFL Linear Regression Model"
+author: "Sean Lussmyer"
+date: "2024-12-06"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+
+1.)
+```{r}
+library("readxl")
+ nfl <- read_excel("/Users/seanlusuer/Downloads/data_nfl.XLS")
+nflmodel <- lm(y ~ x1+x9, data = nfl)  
+summary(nflmodel)
+plot(nflmodel) 
+
+```
+
+
+Assumptions
+
+Linearity: Looking at the residuals vs. fitted plot, we see a horizontal line without a distinct pattern satisfying the assumption of linearity.
+
+Normality: Looking at the QQ plot, we see the points all follow a linear pattern along the dashed line satisfying the normality assumption.
+
+Independence of errors: Looking at the residuals vs. fitted plot, we see no pattern in the points, meaning the independence of errors assumption is satisfied.
+
+Homoscedasticity: Looking at the scale location plot, we see the line of fit is not horizontal, and there is not an equal spread of points, meaning the homoscedasticity assumption is not satisfied.
+
+2.)
+Looking at the residuals vs. leverage points, we see no points exceed 3 standard deviations, but 10 are close, meaning there are no extreme outliers.
+
+Finding leverage points using hat values :
+```{r}
+plot(hatvalues(nflmodel), type = 'h')
+threshold<-2*(2/28)
+threshold
+```
+Using the threshold we calculated, we find the following points are leverage points: 2,3,5,17,19,25 and 27
+
+To find influence points we will use Cook's distance and look for any points greater than .5.
+```{r}
+cooks.distance(nflmodel)
+```
+Looking at the Cook's distance values we see no points greater than .5 meaning we can assume there are no influence points. 
+
+3.)
+```{r}
+nflmodel2 <- lm(y ~ x1+x2+x3+x4+x5+x6+x7+x8+x9, data = nfl)  
+library(car)
+vif(nflmodel2)
+```
+We see all variables have moderate correlation, with x7 having highest breaking 5.
+4.)
+```{r}
+library(olsrr)
+ols_eigen_cindex(nflmodel2)
+```
+
+Looking at the table above, we have 3 condition indices above 30, meaning there is a strong sign of multi-collinearity. Looking at the first case where the condition index equals 51.735373 based on the variance decomposition proportions, we see x1 has the highest value of .6 and the next highest ones are x6 = .238, x7= .143 and x8 = .250, meaning there is a very small linear relationship between the variables. Looking at the next condition index of 90.082, based on the variance decomposition proportions, we see x3 has the highest value of .64 and the next highest ones are x7 = .4 and x8= .58,  meaning there is a small linear relationship between the variables. Looking at the last condition index of 131.169885 , based on the variance decomposition proportions, we see x3 has the highest value of .64 and the next highest ones are x7 = .4 and x8= .58, meaning there is a  small linear relationship between the variables. Based on the vif scores and variance decomposition proportions, there is some multi-collinearity but not a significant amount.
+
+5.)
+```{r}
+library(leaps)
+nflsubsets <- regsubsets(y ~x1+x2+x3+x4+x5+x6+x7+x8+x9 , data = nfl, nvmax = ncol(nfl)-1)
+nflregsum <- summary(nflsubsets)
+```
+
+```{r}
+plot(nflsubsets, scale = "adjr2")
+```
+
+```{r}
+coef(nflsubsets, 4)
+```
+
+```{r}
+plot(nflsubsets, scale = "Cp")
+```
+
+```{r}
+coef(nflsubsets, 3)
+```
+
+We see that the subset of x2,x7,x8 andx9 have the highest Adjusted R-square value. Then we checked the Cp statistics and found that the subsets x2,x7 and x8 had the lowest score and when we look back at the Adjusted R-square for this graph we see that it is only .01 less than the highest subset, suggesting that x2, x7 and x8 make up the best subset model.
+6.)
+```{r}
+start <- lm(y~1,data = nfl)
+step(start, direction = "forward", scope = formula(nflmodel2))
+```
+Looking at the results of using forward elimination, we see the best subset model is made up of x2,x7,x8,x9.
+7.)
+```{r}
+step(nflmodel2, direction = "backward")
+```
+Using backward elimination we see the best subset model is made up of x2,x7,x8,x9.
+8.)
+```{r}
+nflmodel3 <- lm(y ~ x2+x7+x8+x9, data = nfl) 
+summary(nflmodel3)
+```
+
+In my judgment, the Y~ x2+x7+x8+x9 is the best subset model. This is because it has the highest Adjusted R-squared, and the second lowest cp score of 1.4, which is pretty low relative to the number of predictors. This was validated through forward and backward selection. This subset is better than using a full model because it reduces overfitting, increases efficiency and allows us to interpret the relationship between the predictors and the response variable. There are outside factors that would affect the ability of the model to predict future games, such as changes to rules, equipment and players. The models do have strong summary statics with p-values equaling 8.735e-08, Adjusted R-squared = 0.7666 and Multiple R-squared = 0.8012. This model can be used for forecasting games within a couple of seasons, but after that it's tricky due to the constant change of factors.
